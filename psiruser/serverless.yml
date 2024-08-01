@@ -1,0 +1,71 @@
+# "org" ensures this Service is used with the correct Serverless Framework Access Key.
+org: basir
+# "app" enables Serverless Framework Dashboard features and sharing them with other Services.
+app: psirbackend
+# "service" is the name of this project. This will also be added to your AWS resource names.
+service: psiruser
+
+stages:
+  default:
+    params:
+      tableName: "psirtable"
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: ap-south-1
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:Query
+            - dynamodb:Scan
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+          Resource:
+            - Fn::GetAtt: [UsersTable, Arn]
+  environment:
+    USERS_TABLE: ${param:tableName}
+  httpApi:
+    cors:
+      allowedOrigins:
+        - '*'  # Allows all origins; use specific origins for production
+      allowedHeaders:
+        - Content-Type
+        - Authorization
+        - X-Amz-Date
+        - X-Api-Key
+        - X-Amz-Security-Token
+        - X-Requested-With
+      allowedMethods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+        - OPTIONS
+      maxAge: 86400
+
+functions:
+  api:
+    handler: handler.handler
+    events:
+      - httpApi:
+          path: "/{proxy+}"  # Correct syntax for a catch-all route
+          method: ANY
+
+resources:
+  Resources:
+    UsersTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        AttributeDefinitions:
+          - AttributeName: email
+            AttributeType: S
+        KeySchema:
+          - AttributeName: email
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
+        TableName: ${param:tableName}
